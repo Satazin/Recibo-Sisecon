@@ -1,15 +1,5 @@
 const STORAGE_KEY_EMPRESAS = 'empresasReciboSisecon';
 const MAX_SUGGESTIONS = 30;
-const DEFAULT_EMPRESAS = [
-  'Restaurante do Casario',
-  'Restaurante Martini',
-  'Restaurante Sabor & Arte',
-  'Restaurante Nono Tchillo',
-  'Churrascaria Martini',
-  'Fábrica do Lixo',
-  'Hotel Centro',
-  'Pizzaria Nova Italia'
-];
 
 const CONFIG = {
   supabaseUrl: (window.RECIBO_CONFIG && window.RECIBO_CONFIG.supabaseUrl) || '',
@@ -65,13 +55,13 @@ function loadEmpresasLocais() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY_EMPRESAS);
     const parsed = raw ? JSON.parse(raw) : null;
-    if (Array.isArray(parsed) && parsed.length) {
+    if (Array.isArray(parsed)) {
       return parsed.filter(v => typeof v === 'string' && v.trim()).map(v => v.trim());
     }
   } catch (error) {
     console.warn('Erro ao ler empresas locais:', error);
   }
-  return [...DEFAULT_EMPRESAS];
+  return [];
 }
 
 function saveEmpresasLocais(empresas) {
@@ -82,6 +72,9 @@ function saveEmpresasLocais(empresas) {
 
 function getRemoteClient() {
   if (!CONFIG.supabaseUrl || !CONFIG.supabaseKey) {
+    return null;
+  }
+  if (!window.supabase || typeof window.supabase.createClient !== 'function') {
     return null;
   }
   if (!state.remoteClient) {

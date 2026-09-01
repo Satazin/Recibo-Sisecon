@@ -412,8 +412,14 @@
 
 <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.js"></script>
 <script>
 const STORAGE_KEY_EMPRESAS = 'empresasReciboSisecon';
+const CONFIG = {
+  supabaseUrl: (window.RECIBO_CONFIG && window.RECIBO_CONFIG.supabaseUrl) || '',
+  supabaseKey: (window.RECIBO_CONFIG && window.RECIBO_CONFIG.supabaseKey) || ''
+};
 
 function carregarEmpresasSalvas(){
   try {
@@ -426,6 +432,44 @@ function carregarEmpresasSalvas(){
 
 function salvarEmpresasNoStorage(empresas){
   localStorage.setItem(STORAGE_KEY_EMPRESAS, JSON.stringify(empresas));
+}
+
+function getRemoteClient(){
+  if (!CONFIG.supabaseUrl || !CONFIG.supabaseKey) return null;
+  if (!window.supabase || typeof window.supabase.createClient !== 'function') return null;
+  return window.supabase.createClient(CONFIG.supabaseUrl, CONFIG.supabaseKey);
+}
+
+async function fetchEmpresasRemotas(){
+  const client = getRemoteClient();
+  if (!client) return [];
+  try {
+    const { data, error } = await client.from('empresas').select('nome').order('nome', { ascending: true }).limit(1000);
+    if (error) throw error;
+    return (data || []).map(row => row.nome).filter(Boolean);
+  } catch (error) {
+    console.warn('Supabase indisponível; usando apenas empresas locais.', error);
+    return [];
+  }
+}
+
+async function persistirEmpresaRemota(nome){
+  const client = getRemoteClient();
+  if (!client) return;
+  try {
+    const { error } = await client.from('empresas').upsert({ nome: nome.trim() }, { onConflict: 'nome' });
+    if (error) throw error;
+  } catch (error) {
+    console.warn('Não foi possível salvar empresa no Supabase:', error);
+  }
+}
+
+async function prepararEmpresas(){
+  const locais = carregarEmpresasSalvas();
+  const remotas = await fetchEmpresasRemotas();
+  const merged = Array.from(new Set([...remotas, ...locais])).sort((a, b) => a.localeCompare(b));
+  salvarEmpresasNoStorage(merged.slice(0, 1000));
+  atualizarListaEmpresas();
 }
 
 function atualizarListaEmpresas(){
@@ -453,13 +497,16 @@ function salvarEmpresaAtual(){
   const jaExiste = empresas.some(nome => nome.toLowerCase() === valor.toLowerCase());
   if(!jaExiste){
     empresas.unshift(valor);
-    salvarEmpresasNoStorage(empresas.slice(0, 30));
+   salvarEmpresasNoStorage(empresas.slice(0, 1000));
     atualizarListaEmpresas();
-  }
+   persistirEmpresaRemota(valor).catch(() => {});
+ }
 
-  input.focus();
-  input.select();
+ input.focus();
+ input.select();
 }
+
+prepararEmpresas();
 
 document.getElementById('salvarEmpresa')?.addEventListener('click', salvarEmpresaAtual);
 document.getElementById('firma')?.addEventListener('keydown', function(event){
