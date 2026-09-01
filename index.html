@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gerador de Recibo — SISECON</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <div class="wrap">
+    <div class="painel">
+      <h1>Gerador de Recibo — SISECON</h1>
+      <p class="subtitulo">Preencha os dados e clique em Imprimir / Salvar PDF.</p>
+
+      <div class="campo">
+        <label>A Firma</label>
+        <div class="campo-inline">
+          <input type="text" id="firma" placeholder="Nome da empresa cliente" list="empresas-sugeridas" autocomplete="off">
+          <button type="button" class="btn-mini" id="salvarEmpresa" title="Salvar empresa para sugestões" aria-label="Salvar empresa">+</button>
+        </div>
+        <datalist id="empresas-sugeridas"></datalist>
+      </div>
+
+      <div class="campo">
+        <label>Referente a (mês/ano)</label>
+        <input type="text" id="referente" placeholder="Ex: Agosto/2026">
+      </div>
+
+      <div class="cab-itens">
+        <div>Item</div>
+        <div>Compet.</div>
+        <div>Valor R$</div>
+      </div>
+      <div id="lista-itens"></div>
+
+      <div class="campo" style="margin-top:10px;">
+        <label>Total R$</label>
+        <input type="text" id="totalManual" placeholder="0,00">
+      </div>
+
+      <div class="rodape-form">
+        <div class="campo"><label>Dia</label><input type="text" id="dia" placeholder="__"></div>
+        <div class="campo"><label>Mês</label><input type="text" id="mes" placeholder="Setembro"></div>
+        <div class="campo"><label>Ano</label><input type="text" id="ano" placeholder="2026"></div>
+      </div>
+
+      <label class="toggle-vias">
+        <input type="checkbox" id="duasVias" checked>
+        Imprimir 2 vias lado a lado (como o modelo original)
+      </label>
+
+      <div class="btns">
+        <button type="button" class="btn-primaria" onclick="imprimirRecibo()">Imprimir</button>
+        <button type="button" class="btn-secundaria" onclick="baixarPdf()">Baixar PDF</button>
+      </div>
+      <div class="btn-limpar-wrap">
+        <button type="button" class="btn-link" onclick="limpar()">Limpar campos</button>
+      </div>
+    </div>
+
+    <button type="button" class="theme-toggle" id="toggleTema" aria-label="Alternar tema" title="Alternar tema" onclick="toggleTema()">☀</button>
+
+    <div class="preview-area">
+      <div id="folha">
+        <div id="pagina-preview">
+          <div class="pagina" id="pagina"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="./config.js"></script>
+  <script src="./app.js"></script>
+</body>
+</html>
