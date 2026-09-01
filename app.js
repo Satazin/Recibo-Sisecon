@@ -114,7 +114,9 @@ async function prepararEmpresas() {
   const merged = Array.from(new Set([...remotas, ...locais])).sort((a, b) => a.localeCompare(b));
   state.empresas = merged.slice(0, 1000);
   saveEmpresasLocais(state.empresas);
-  renderSuggestions();
+  // Não mostra sugestões até o usuário interagir com o input
+  const container = document.getElementById('empresas-sugeridas');
+  if (container) container.hidden = true;
 }
 
 function renderSuggestions(filterText = '') {
@@ -128,7 +130,8 @@ function renderSuggestions(filterText = '') {
 
   container.innerHTML = '';
   
-  if (matches.length === 0) {
+  // Se o campo está vazio ou sem matches, não mostra
+  if (!filterText.trim() || matches.length === 0) {
     container.hidden = true;
     return;
   }
@@ -507,7 +510,10 @@ function configurarInputs() {
   });
 
   document.getElementById('firma').addEventListener('focus', function () {
-    renderSuggestions(this.value);
+    // Só mostra sugestões se já tem texto digitado
+    if (this.value.trim()) {
+      renderSuggestions(this.value);
+    }
   });
 
   document.getElementById('firma').addEventListener('keydown', function (event) {
@@ -533,6 +539,9 @@ function configurarInputs() {
       const mesEl = document.getElementById('mes');
       if (proximo && mesEl) mesEl.value = proximo;
     }
+    // Fecha sugestões ao clicar em outro campo
+    const lista = document.getElementById('empresas-sugeridas');
+    if (lista) lista.hidden = true;
   });
 
   document.getElementById('mes').addEventListener('input', function () {
@@ -543,6 +552,9 @@ function configurarInputs() {
     if (proximo && referente && !referente.value) {
       referente.value = `${valor}/`;
     }
+    // Fecha sugestões ao clicar em outro campo
+    const lista = document.getElementById('empresas-sugeridas');
+    if (lista) lista.hidden = true;
   });
 
   // Fechar sugestões ao clicar fora
@@ -554,6 +566,16 @@ function configurarInputs() {
     const clicouDentro = input.contains(event.target) || lista.contains(event.target);
     if (!clicouDentro) {
       lista.hidden = true;
+    }
+  });
+
+  // Fechar sugestões ao clicar em qualquer outro input
+  document.querySelectorAll('input').forEach(el => {
+    if (el.id !== 'firma') {
+      el.addEventListener('focus', function () {
+        const lista = document.getElementById('empresas-sugeridas');
+        if (lista) lista.hidden = true;
+      });
     }
   });
 }
