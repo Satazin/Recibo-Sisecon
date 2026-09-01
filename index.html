@@ -392,7 +392,6 @@
       <label>A Firma</label>
       <div class="campo-inline" style="position:relative;">
         <input type="text" id="firma" placeholder="Nome da empresa cliente" autocomplete="off">
-        <button type="button" class="btn-mini" id="salvarEmpresa" title="Salvar empresa para sugestões" aria-label="Salvar empresa">+</button>
         <div id="empresas-sugeridas" class="empresas-sugeridas" hidden></div>
       </div>
     </div>
@@ -623,7 +622,7 @@ function salvarEmpresaAtual(){
 
 prepararEmpresas();
 
-document.getElementById('salvarEmpresa')?.addEventListener('click', salvarEmpresaAtual);
+
 document.getElementById('firma')?.addEventListener('input', function(){
   renderizarSugestoes(this.value);
 });
