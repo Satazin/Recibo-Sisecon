@@ -114,14 +114,27 @@ async function prepararEmpresas() {
   const merged = Array.from(new Set([...remotas, ...locais])).sort((a, b) => a.localeCompare(b));
   state.empresas = merged.slice(0, 1000);
   saveEmpresasLocais(state.empresas);
-  // Não mostra sugestões até o usuário interagir com o input
+  // Garante que a lista fica oculta ao iniciar
   const container = document.getElementById('empresas-sugeridas');
-  if (container) container.hidden = true;
+  if (container) {
+    container.innerHTML = '';
+    container.setAttribute('hidden', '');
+    container.style.display = 'none';
+    console.log('✓ Lista de sugestões inicializada oculta');
+  }
 }
 
 function renderSuggestions(filterText = '') {
   const container = document.getElementById('empresas-sugeridas');
   if (!container) return;
+
+  // Se está vazio, não mostra nada
+  if (!filterText || !filterText.trim()) {
+    container.innerHTML = '';
+    container.setAttribute('hidden', '');
+    container.style.display = 'none';
+    return;
+  }
 
   const query = normalizeEmpresa(filterText).toLowerCase();
   const matches = [...state.empresas]
@@ -130,9 +143,10 @@ function renderSuggestions(filterText = '') {
 
   container.innerHTML = '';
   
-  // Se o campo está vazio ou sem matches, não mostra
-  if (!filterText.trim() || matches.length === 0) {
-    container.hidden = true;
+  // Se não tem matches, não mostra
+  if (matches.length === 0) {
+    container.setAttribute('hidden', '');
+    container.style.display = 'none';
     return;
   }
 
@@ -146,7 +160,8 @@ function renderSuggestions(filterText = '') {
       const input = document.getElementById('firma');
       if (input) {
         input.value = name;
-        container.hidden = true;
+        container.setAttribute('hidden', '');
+        container.style.display = 'none';
         atualizar();
       }
     });
@@ -154,7 +169,8 @@ function renderSuggestions(filterText = '') {
     container.appendChild(div);
   });
 
-  container.hidden = false;
+  container.removeAttribute('hidden');
+  container.style.display = 'block';
 }
 
 function adicionarEmpresaAtual() {
@@ -517,13 +533,16 @@ function configurarInputs() {
   });
 
   document.getElementById('firma').addEventListener('keydown', function (event) {
+    const container = document.getElementById('empresas-sugeridas');
     if (event.key === 'Escape') {
-      document.getElementById('empresas-sugeridas').hidden = true;
+      container.setAttribute('hidden', '');
+      container.style.display = 'none';
     } else if (event.key === 'Enter' && !event.shiftKey) {
       const valor = this.value.trim();
       if (valor) {
         event.preventDefault();
-        document.getElementById('empresas-sugeridas').hidden = true;
+        container.setAttribute('hidden', '');
+        container.style.display = 'none';
         adicionarEmpresaAtual();
       }
     }
@@ -541,7 +560,10 @@ function configurarInputs() {
     }
     // Fecha sugestões ao clicar em outro campo
     const lista = document.getElementById('empresas-sugeridas');
-    if (lista) lista.hidden = true;
+    if (lista) {
+      lista.setAttribute('hidden', '');
+      lista.style.display = 'none';
+    }
   });
 
   document.getElementById('mes').addEventListener('input', function () {
@@ -554,7 +576,10 @@ function configurarInputs() {
     }
     // Fecha sugestões ao clicar em outro campo
     const lista = document.getElementById('empresas-sugeridas');
-    if (lista) lista.hidden = true;
+    if (lista) {
+      lista.setAttribute('hidden', '');
+      lista.style.display = 'none';
+    }
   });
 
   // Fechar sugestões ao clicar fora
@@ -565,7 +590,8 @@ function configurarInputs() {
     
     const clicouDentro = input.contains(event.target) || lista.contains(event.target);
     if (!clicouDentro) {
-      lista.hidden = true;
+      lista.setAttribute('hidden', '');
+      lista.style.display = 'none';
     }
   });
 
@@ -574,7 +600,10 @@ function configurarInputs() {
     if (el.id !== 'firma') {
       el.addEventListener('focus', function () {
         const lista = document.getElementById('empresas-sugeridas');
-        if (lista) lista.hidden = true;
+        if (lista) {
+          lista.setAttribute('hidden', '');
+          lista.style.display = 'none';
+        }
       });
     }
   });
