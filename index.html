@@ -581,9 +581,17 @@ function renderizarSugestoes(query = ''){
   const lista = document.getElementById('empresas-sugeridas');
   if(!lista) return;
 
-  const empresas = carregarEmpresasSalvas();
   const termo = normalizarNomeEmpresa(query);
-  const filtradas = empresas.filter(nome => !termo || normalizarNomeEmpresa(nome).includes(termo)).slice(0, 12);
+
+  // Campo vazio: não mostra sugestão nenhuma
+  if (!termo) {
+    lista.innerHTML = '';
+    lista.hidden = true;
+    return;
+  }
+
+  const empresas = carregarEmpresasSalvas();
+  const filtradas = empresas.filter(nome => normalizarNomeEmpresa(nome).includes(termo)).slice(0, 5);
 
   lista.innerHTML = '';
   if (!filtradas.length) {
