@@ -1,15 +1,5 @@
 const STORAGE_KEY_EMPRESAS = 'empresasReciboSisecon';
 const MAX_SUGGESTIONS = 30;
-const DEFAULT_EMPRESAS = [
-  'Restaurante do Casario',
-  'Restaurante Martini',
-  'Restaurante Sabor & Arte',
-  'Restaurante Nono Tchillo',
-  'Churrascaria Martini',
-  'Fábrica do Lixo',
-  'Hotel Centro',
-  'Pizzaria Nova Italia'
-];
 
 const CONFIG = {
   supabaseUrl: (window.RECIBO_CONFIG && window.RECIBO_CONFIG.supabaseUrl) || '',
@@ -71,7 +61,7 @@ function loadEmpresasLocais() {
   } catch (error) {
     console.warn('Erro ao ler empresas locais:', error);
   }
-  return [...DEFAULT_EMPRESAS];
+  return error ? [] : [];
 }
 
 function saveEmpresasLocais(empresas) {
