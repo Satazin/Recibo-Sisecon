@@ -55,13 +55,13 @@ function loadEmpresasLocais() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY_EMPRESAS);
     const parsed = raw ? JSON.parse(raw) : null;
-    if (Array.isArray(parsed) && parsed.length) {
+    if (Array.isArray(parsed)) {
       return parsed.filter(v => typeof v === 'string' && v.trim()).map(v => v.trim());
     }
   } catch (error) {
     console.warn('Erro ao ler empresas locais:', error);
   }
-  return error ? [] : [];
+  return [];
 }
 
 function saveEmpresasLocais(empresas) {
@@ -72,6 +72,9 @@ function saveEmpresasLocais(empresas) {
 
 function getRemoteClient() {
   if (!CONFIG.supabaseUrl || !CONFIG.supabaseKey) {
+    return null;
+  }
+  if (!window.supabase || typeof window.supabase.createClient !== 'function') {
     return null;
   }
   if (!state.remoteClient) {
