@@ -35,7 +35,8 @@ function normalizeEmpresa(value) {
     .replace(/&/g, ' e ')
     .replace(/[^a-zA-Z0-9\s]/g, ' ')
     .replace(/\s+/g, ' ')
-    .trim();
+    .trim()
+    .toLowerCase();
 }
 
 function buildEmpresaSlug(value) {
@@ -65,7 +66,9 @@ function loadEmpresasLocais() {
 }
 
 function saveEmpresasLocais(empresas) {
-  const uniq = Array.from(new Set(empresas.map(v => String(v).trim()).filter(Boolean))).slice(0, 1000);
+  const uniq = Array.from(new Map(
+    empresas.map(v => String(v).trim()).filter(Boolean).map(v => [normalizeEmpresa(v), v])
+  ).values()).slice(0, 1000);
   localStorage.setItem(STORAGE_KEY_EMPRESAS, JSON.stringify(uniq));
   state.empresas = uniq;
 }
@@ -131,10 +134,12 @@ function adicionarEmpresaAtual() {
     return;
   }
 
-  const jaExiste = state.empresas.some(item => normalizeEmpresa(item).toLowerCase() === normalizeEmpresa(nome).toLowerCase());
+  const jaExiste = state.empresas.some(item => normalizeEmpresa(item) === normalizeEmpresa(nome));
   if (!jaExiste) {
     state.empresas.unshift(nome);
-    state.empresas = Array.from(new Set(state.empresas.map(v => v.trim()).filter(Boolean))).slice(0, 1000);
+    state.empresas = Array.from(new Map(
+      state.empresas.map(v => String(v).trim()).filter(Boolean).map(v => [normalizeEmpresa(v), v])
+    ).values()).slice(0, 1000);
     saveEmpresasLocais(state.empresas);
     if (getRemoteClient()) {
       persistirEmpresaRemota(nome).catch(() => {});
@@ -147,11 +152,18 @@ function adicionarEmpresaAtual() {
 }
 
 async function persistirEmpresaRemota(nome) {
+  const valor = String(nome || '').trim();
   const client = getRemoteClient();
-  if (!client) return;
+  if (!client || !valor) return;
   try {
-    const { error } = await client.from('empresas').upsert({ nome: nome.trim() }, { onConflict: 'nome' });
-    if (error) throw error;
+    const { data, error: selectError } = await client.from('empresas').select('nome');
+    if (selectError) throw selectError;
+
+    const jaExisteRemota = (data || []).some(item => normalizeEmpresa(item.nome) === normalizeEmpresa(valor));
+    if (jaExisteRemota) return;
+
+    const { error } = await client.from('empresas').insert({ nome: valor });
+    if (error && error.code !== '23505') throw error;
   } catch (error) {
     console.warn('Não foi possível salvar empresa remota:', error);
   }

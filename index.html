@@ -102,8 +102,42 @@
     display:flex;
     align-items:center;
     gap:8px;
+    position:relative;
   }
   .campo-inline input{flex:1;}
+  .empresas-sugeridas{
+    position:absolute;
+    left:0;
+    right:44px;
+    top:calc(100% + 6px);
+    background:rgba(22,27,34,.94);
+    border:1px solid rgba(148,163,184,.25);
+    border-radius:12px;
+    box-shadow:0 16px 32px rgba(2,6,23,.28);
+    overflow:hidden;
+    z-index:40;
+    max-height:280px;
+    overflow-y:auto;
+  }
+  .empresa-sugestao{
+    display:block;
+    width:100%;
+    border:none;
+    background:transparent;
+    color:#f8fafc;
+    text-align:left;
+    padding:10px 12px;
+    font-size:14px;
+    font-weight:600;
+    cursor:pointer;
+    border-bottom:1px solid rgba(255,255,255,.08);
+  }
+  .empresa-sugestao:last-child{border-bottom:none;}
+  .empresa-sugestao:hover,
+  .empresa-sugestao:focus-visible{
+    background:rgba(255,255,255,.06);
+    outline:none;
+  }
   .btn-mini{
     width:36px;
     height:36px;
@@ -356,11 +390,11 @@
 
     <div class="campo">
       <label>A Firma</label>
-      <div class="campo-inline">
-        <input type="text" id="firma" placeholder="Nome da empresa cliente" list="empresas-sugeridas">
+      <div class="campo-inline" style="position:relative;">
+        <input type="text" id="firma" placeholder="Nome da empresa cliente" autocomplete="off">
         <button type="button" class="btn-mini" id="salvarEmpresa" title="Salvar empresa para sugestões" aria-label="Salvar empresa">+</button>
+        <div id="empresas-sugeridas" class="empresas-sugeridas" hidden></div>
       </div>
-      <datalist id="empresas-sugeridas"></datalist>
     </div>
     <div class="campo">
       <label>Referente a (mês/ano)</label>
@@ -421,6 +455,22 @@ const CONFIG = {
   supabaseKey: (window.RECIBO_CONFIG && window.RECIBO_CONFIG.supabaseKey) || ''
 };
 
+function normalizarNomeEmpresa(valor){
+  return String(valor || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/&/g, ' e ')
+    .replace(/[^a-zA-Z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+}
+
+function empresaJaExisteNaLista(lista, valor){
+  const alvo = normalizarNomeEmpresa(valor);
+  return lista.some(item => normalizarNomeEmpresa(item) === alvo);
+}
+
 function carregarEmpresasSalvas(){
   try {
     const lista = JSON.parse(localStorage.getItem(STORAGE_KEY_EMPRESAS) || '[]');
@@ -431,7 +481,13 @@ function carregarEmpresasSalvas(){
 }
 
 function salvarEmpresasNoStorage(empresas){
-  localStorage.setItem(STORAGE_KEY_EMPRESAS, JSON.stringify(empresas));
+  const unique = Array.from(new Map(
+    empresas
+      .map(v => String(v).trim())
+      .filter(Boolean)
+      .map(v => [normalizarNomeEmpresa(v), v])
+  ).values());
+  localStorage.setItem(STORAGE_KEY_EMPRESAS, JSON.stringify(unique.slice(0, 1000)));
 }
 
 function getRemoteClient(){
@@ -454,53 +510,112 @@ async function fetchEmpresasRemotas(){
 }
 
 async function persistirEmpresaRemota(nome){
+  const valor = String(nome || '').trim();
+  if (!valor) return false;
+
   const client = getRemoteClient();
-  if (!client) return;
+  if (!client) return false;
+
   try {
-    const { error } = await client.from('empresas').upsert({ nome: nome.trim() }, { onConflict: 'nome' });
-    if (error) throw error;
+    const { data, error: selectError } = await client.from('empresas').select('nome');
+    if (selectError) throw selectError;
+
+    const jaExisteRemota = (data || []).some(item => normalizarNomeEmpresa(item.nome) === normalizarNomeEmpresa(valor));
+    if (jaExisteRemota) return false;
+
+    const { error } = await client.from('empresas').insert({ nome: valor });
+    if (error) {
+      if (error.code === '23505') return false;
+      throw error;
+    }
+    return true;
   } catch (error) {
     console.warn('Não foi possível salvar empresa no Supabase:', error);
+    return false;
   }
 }
 
 async function prepararEmpresas(){
   const locais = carregarEmpresasSalvas();
   const remotas = await fetchEmpresasRemotas();
-  const merged = Array.from(new Set([...remotas, ...locais])).sort((a, b) => a.localeCompare(b));
+  const merged = Array.from(new Map(
+    [...remotas, ...locais]
+      .map(v => String(v).trim())
+      .filter(Boolean)
+      .map(v => [normalizarNomeEmpresa(v), v])
+  ).values()).sort((a, b) => a.localeCompare(b));
+
   salvarEmpresasNoStorage(merged.slice(0, 1000));
   atualizarListaEmpresas();
 }
 
-function atualizarListaEmpresas(){
-  const lista = document.getElementById('empresas-sugeridas');
-  if(!lista) return;
+function adicionarEmpresaSeNecessaria(nome, opcoes = {}){
+  const valor = String(nome || '').trim();
+  if (!valor) return false;
+
   const empresas = carregarEmpresasSalvas();
-  lista.innerHTML = '';
-  empresas.forEach(nome => {
-    const option = document.createElement('option');
-    option.value = nome;
-    lista.appendChild(option);
-  });
+  if (empresaJaExisteNaLista(empresas, valor)) {
+    return false;
+  }
+
+  empresas.unshift(valor);
+  salvarEmpresasNoStorage(empresas);
+  atualizarListaEmpresas();
+
+  if (opcoes.persistirRemota !== false) {
+    persistirEmpresaRemota(valor).catch(() => {});
+  }
+
+  return true;
 }
 
-function salvarEmpresaAtual(){
-  const input = document.getElementById('firma');
-  if(!input) return;
-  const valor = input.value.trim();
-  if(!valor){
-    input.focus();
+function renderizarSugestoes(query = ''){
+  const lista = document.getElementById('empresas-sugeridas');
+  if(!lista) return;
+
+  const empresas = carregarEmpresasSalvas();
+  const termo = normalizarNomeEmpresa(query);
+  const filtradas = empresas.filter(nome => !termo || normalizarNomeEmpresa(nome).includes(termo)).slice(0, 12);
+
+  lista.innerHTML = '';
+  if (!filtradas.length) {
+    lista.hidden = true;
     return;
   }
 
-  const empresas = carregarEmpresasSalvas();
-  const jaExiste = empresas.some(nome => nome.toLowerCase() === valor.toLowerCase());
-  if(!jaExiste){
-    empresas.unshift(valor);
-   salvarEmpresasNoStorage(empresas.slice(0, 1000));
-    atualizarListaEmpresas();
-   persistirEmpresaRemota(valor).catch(() => {});
+  filtradas.forEach(nome => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'empresa-sugestao';
+    button.textContent = nome;
+    button.addEventListener('click', () => {
+      const input = document.getElementById('firma');
+      if (input) {
+        input.value = nome;
+        input.focus();
+      }
+      lista.hidden = true;
+    });
+    lista.appendChild(button);
+  });
+
+  lista.hidden = false;
+}
+
+function atualizarListaEmpresas(){
+  renderizarSugestoes(document.getElementById('firma')?.value || '');
+}
+
+function salvarEmpresaAtual(){
+ const input = document.getElementById('firma');
+ if(!input) return;
+ const valor = input.value.trim();
+ if(!valor){
+   input.focus();
+   return;
  }
+
+ adicionarEmpresaSeNecessaria(valor, { persistirRemota: true });
 
  input.focus();
  input.select();
@@ -509,11 +624,26 @@ function salvarEmpresaAtual(){
 prepararEmpresas();
 
 document.getElementById('salvarEmpresa')?.addEventListener('click', salvarEmpresaAtual);
+document.getElementById('firma')?.addEventListener('input', function(){
+  renderizarSugestoes(this.value);
+});
+document.getElementById('firma')?.addEventListener('focus', function(){
+  renderizarSugestoes(this.value);
+});
+document.addEventListener('click', function(event){
+  const input = document.getElementById('firma');
+  const lista = document.getElementById('empresas-sugeridas');
+  if (!input || !lista) return;
+  const clicouDentro = input.contains(event.target) || lista.contains(event.target);
+  if (!clicouDentro) {
+    lista.hidden = true;
+  }
+});
 document.getElementById('firma')?.addEventListener('keydown', function(event){
   if(event.key === 'Enter' && !event.shiftKey){
     const empresas = carregarEmpresasSalvas();
     const valor = this.value.trim();
-    if(valor && !empresas.some(nome => nome.toLowerCase() === valor.toLowerCase())){
+    if(valor && !empresas.some(nome => normalizarNomeEmpresa(nome) === normalizarNomeEmpresa(valor))){
       event.preventDefault();
       salvarEmpresaAtual();
     }
@@ -735,7 +865,14 @@ function atualizar(){
   requestAnimationFrame(ajustarPreview);
 }
 
+async function salvarEmpresaAntesDeExportar(){
+  const firma = document.getElementById('firma');
+  if (!firma || !firma.value || !firma.value.trim()) return;
+  adicionarEmpresaSeNecessaria(firma.value.trim(), { persistirRemota: true });
+}
+
 function imprimirRecibo(){
+  salvarEmpresaAntesDeExportar();
   window.print();
 }
 
@@ -828,6 +965,8 @@ async function baixarPdf(){
   }
 
   try {
+    await salvarEmpresaAntesDeExportar();
+
     const canvas = await html2canvas(alvo, {
       scale: 2,
       backgroundColor: '#ffffff',
