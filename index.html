@@ -108,12 +108,13 @@
   .empresas-sugeridas{
     position:absolute;
     left:0;
-    right:44px;
-    top:calc(100% + 6px);
-    background:rgba(22,27,34,.94);
-    border:1px solid rgba(148,163,184,.25);
-    border-radius:12px;
-    box-shadow:0 16px 32px rgba(2,6,23,.28);
+    right:0;
+    top:calc(100% + 0px);
+    background:var(--campo-bg);
+    border:1px solid var(--campo-border);
+    border-top:none;
+    border-radius:0 0 12px 12px;
+    box-shadow:0 8px 16px rgba(0,0,0,.12);
     overflow:hidden;
     z-index:40;
     max-height:280px;
@@ -124,19 +125,23 @@
     width:100%;
     border:none;
     background:transparent;
-    color:#f8fafc;
+    color:var(--campo-text);
     text-align:left;
     padding:10px 12px;
     font-size:14px;
     font-weight:600;
     cursor:pointer;
-    border-bottom:1px solid rgba(255,255,255,.08);
+    border-bottom:1px solid var(--campo-border);
   }
   .empresa-sugestao:last-child{border-bottom:none;}
   .empresa-sugestao:hover,
   .empresa-sugestao:focus-visible{
-    background:rgba(255,255,255,.06);
+    background:rgba(0,0,0,.05);
     outline:none;
+  }
+  body[data-theme="dark"] .empresa-sugestao:hover,
+  body[data-theme="dark"] .empresa-sugestao:focus-visible{
+    background:rgba(255,255,255,.06);
   }
   .btn-mini{
     width:36px;
@@ -391,7 +396,7 @@
     <div class="campo">
       <label>A Firma</label>
       <div class="campo-inline" style="position:relative;">
-        <input type="text" id="firma" placeholder="Nome da empresa cliente" autocomplete="off">
+        <input type="text" id="firma" placeholder="Nome da empresa cliente" autocomplete="off" data-lpignore="true" data-form-type="other">
         <div id="empresas-sugeridas" class="empresas-sugeridas" hidden></div>
       </div>
     </div>

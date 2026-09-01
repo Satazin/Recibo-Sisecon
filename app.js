@@ -88,13 +88,22 @@ function getRemoteClient() {
 
 async function fetchEmpresasRemotas() {
   const client = getRemoteClient();
-  if (!client) return [];
+  if (!client) {
+    console.log('Supabase não configurado - usando apenas armazenamento local');
+    return [];
+  }
   try {
+    console.log('Carregando empresas do Supabase...');
     const { data, error } = await client.from('empresas').select('nome').order('nome', { ascending: true }).limit(1000);
-    if (error) throw error;
-    return (data || []).map(row => row.nome).filter(Boolean);
+    if (error) {
+      console.error('❌ Erro ao buscar empresas do Supabase:', error.message);
+      return [];
+    }
+    const empresas = (data || []).map(row => row.nome).filter(Boolean);
+    console.log(`✓ ${empresas.length} empresas carregadas do Supabase`);
+    return empresas;
   } catch (error) {
-    console.warn('Supabase indisponível, usando armazenamento local:', error);
+    console.error('❌ Erro ao conectar Supabase:', error.message);
     return [];
   }
 }
@@ -109,20 +118,40 @@ async function prepararEmpresas() {
 }
 
 function renderSuggestions(filterText = '') {
-  const datalist = document.getElementById('empresas-sugeridas');
-  if (!datalist) return;
+  const container = document.getElementById('empresas-sugeridas');
+  if (!container) return;
 
   const query = normalizeEmpresa(filterText).toLowerCase();
   const matches = [...state.empresas]
     .filter(name => !query || normalizeEmpresa(name).toLowerCase().includes(query))
     .slice(0, MAX_SUGGESTIONS);
 
-  datalist.innerHTML = '';
+  container.innerHTML = '';
+  
+  if (matches.length === 0) {
+    container.hidden = true;
+    return;
+  }
+
   matches.forEach(name => {
-    const option = document.createElement('option');
-    option.value = name;
-    datalist.appendChild(option);
+    const div = document.createElement('div');
+    div.className = 'empresa-sugestao';
+    div.textContent = name;
+    div.role = 'option';
+    
+    div.addEventListener('click', () => {
+      const input = document.getElementById('firma');
+      if (input) {
+        input.value = name;
+        container.hidden = true;
+        atualizar();
+      }
+    });
+    
+    container.appendChild(div);
   });
+
+  container.hidden = false;
 }
 
 function adicionarEmpresaAtual() {
@@ -141,8 +170,18 @@ function adicionarEmpresaAtual() {
       state.empresas.map(v => String(v).trim()).filter(Boolean).map(v => [normalizeEmpresa(v), v])
     ).values()).slice(0, 1000);
     saveEmpresasLocais(state.empresas);
+    console.log('✓ Empresa salva localmente:', nome);
+    
     if (getRemoteClient()) {
-      persistirEmpresaRemota(nome).catch(() => {});
+      persistirEmpresaRemota(nome).then(sucesso => {
+        if (sucesso) {
+          console.log('✓ Empresa também salva no Supabase!');
+        } else {
+          console.warn('⚠️ Empresa salva localmente mas não no Supabase. Verifique a conexão.');
+        }
+      }).catch(err => {
+        console.error('Erro ao salvar no Supabase:', err);
+      });
     }
   }
 
@@ -154,18 +193,37 @@ function adicionarEmpresaAtual() {
 async function persistirEmpresaRemota(nome) {
   const valor = String(nome || '').trim();
   const client = getRemoteClient();
-  if (!client || !valor) return;
+  if (!client || !valor) {
+    console.warn('Supabase não disponível ou valor vazio');
+    return false;
+  }
   try {
     const { data, error: selectError } = await client.from('empresas').select('nome');
-    if (selectError) throw selectError;
+    if (selectError) {
+      console.warn('Erro ao verificar empresas:', selectError);
+      // Continua mesmo com erro na verificação
+    }
 
     const jaExisteRemota = (data || []).some(item => normalizeEmpresa(item.nome) === normalizeEmpresa(valor));
-    if (jaExisteRemota) return;
+    if (jaExisteRemota) {
+      console.log('Empresa já existe no Supabase:', valor);
+      return true;
+    }
 
-    const { error } = await client.from('empresas').insert({ nome: valor });
-    if (error && error.code !== '23505') throw error;
+    const { error, data: insertData } = await client.from('empresas').insert([{ nome: valor }]).select();
+    if (error) {
+      if (error.code === '23505') {
+        console.log('Empresa já estava salva (duplicada)');
+        return true;
+      }
+      throw error;
+    }
+    
+    console.log('Empresa salva no Supabase:', valor, insertData);
+    return true;
   } catch (error) {
-    console.warn('Não foi possível salvar empresa remota:', error);
+    console.error('❌ Erro ao salvar empresa no Supabase:', error.message, error);
+    return false;
   }
 }
 
@@ -448,6 +506,23 @@ function configurarInputs() {
     renderSuggestions(this.value);
   });
 
+  document.getElementById('firma').addEventListener('focus', function () {
+    renderSuggestions(this.value);
+  });
+
+  document.getElementById('firma').addEventListener('keydown', function (event) {
+    if (event.key === 'Escape') {
+      document.getElementById('empresas-sugeridas').hidden = true;
+    } else if (event.key === 'Enter' && !event.shiftKey) {
+      const valor = this.value.trim();
+      if (valor) {
+        event.preventDefault();
+        document.getElementById('empresas-sugeridas').hidden = true;
+        adicionarEmpresaAtual();
+      }
+    }
+  });
+
   document.getElementById('referente').addEventListener('input', function () {
     const valor = formatarReferente(this.value);
     this.value = valor;
@@ -470,13 +545,15 @@ function configurarInputs() {
     }
   });
 
-  document.getElementById('firma').addEventListener('keydown', function (event) {
-    if (event.key === 'Enter' && !event.shiftKey) {
-      const valor = this.value.trim();
-      if (valor) {
-        event.preventDefault();
-        adicionarEmpresaAtual();
-      }
+  // Fechar sugestões ao clicar fora
+  document.addEventListener('click', function (event) {
+    const input = document.getElementById('firma');
+    const lista = document.getElementById('empresas-sugeridas');
+    if (!input || !lista) return;
+    
+    const clicouDentro = input.contains(event.target) || lista.contains(event.target);
+    if (!clicouDentro) {
+      lista.hidden = true;
     }
   });
 }
