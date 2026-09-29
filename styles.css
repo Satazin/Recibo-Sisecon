@@ -336,7 +336,7 @@ button{
 .linha-ref span{display:inline-block; border-bottom:1px solid var(--recibo-line); min-width:140px; padding-bottom:1px;  font-weight:600; text-align:left; color:var(--recibo-text);}
 
 .itens{margin-top:8px;}
-.item{display:grid; grid-template-columns: minmax(0, 1.9fr) 120px 26px 110px; align-items:end; gap:6px; padding:4px 0; font-size:9.8px; color:var(--recibo-text);}
+.item{display:grid; grid-template-columns: minmax(0, 1.9fr) 120px 26px 170px; align-items:end; gap:6px; padding:9px 0; font-size:9.8px; color:var(--recibo-text);}
 .item .nome{font-weight:600; color:var(--recibo-text);}
 .item .competencia{flex:1; min-width:20px; text-align:center; border-bottom:1px solid var(--recibo-line); font-weight:600; padding-bottom:1px; color:var(--recibo-text);}
 .item .competencia.vazio{color:transparent; font-weight:400;}
@@ -345,7 +345,7 @@ button{
 .item .valor.vazio{color:transparent; font-weight:400;}
 
 .total{display:flex; justify-content:flex-end; align-items:center; gap:8px; margin-top:10px; font-size:12px; font-weight:700; color:var(--recibo-text);}
-.total span{display:inline-block; min-width:118px; text-align:right; border-bottom:1px solid var(--recibo-line); padding-bottom:2px; color:var(--recibo-text);}
+.total span{display:inline-block; min-width:170px; text-align:right; border-bottom:1px solid var(--recibo-line); padding-bottom:2px; color:var(--recibo-text);}
 
 .linha-data{display:flex; justify-content:space-between; align-items:flex-start; margin-top:10px; gap:12px; font-size:9.8px; color:var(--recibo-text);}
 .linha-data .data-texto{flex:1; font-size:11px; color:var(--recibo-text);}
