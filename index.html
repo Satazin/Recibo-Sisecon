@@ -453,7 +453,6 @@
 
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.js"></script>
@@ -970,43 +969,97 @@ function obterNomeArquivoPdf(){
 }
 
 async function baixarPdf(){
-  const alvo = document.getElementById('folha');
-  if(!alvo){
-    alert('Não foi possível localizar a área do recibo para exportar.');
+  if(!window.jspdf || !window.jspdf.jsPDF){
+    alert('A exportação para PDF não está disponível neste momento. Tente novamente mais tarde.');
     return;
   }
 
-  if(typeof html2canvas === 'undefined' || !window.jspdf || !window.jspdf.jsPDF){
-    alert('A exportação para PDF não está disponível neste momento. Tente novamente mais tarde.');
+  const recibos = Array.from(document.querySelectorAll('#pagina .recibo'));
+  if(!recibos.length){
+    alert('Não foi possível localizar o recibo para exportar.');
     return;
   }
 
   try {
     await salvarEmpresaAntesDeExportar();
 
-    const canvas = await html2canvas(alvo, {
-      scale: 2,
-      backgroundColor: '#ffffff',
-      useCORS: true,
-      logging: false,
-      windowWidth: document.documentElement.scrollWidth,
-      windowHeight: document.documentElement.scrollHeight
-    });
-
     const { jsPDF } = window.jspdf;
-    const pdf = new jsPDF({
-      orientation: 'landscape',
-      unit: 'mm',
-      format: 'a4'
+    const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+
+    const LARGURA_RECIBO_MM = 148.5;   // metade do A4 paisagem
+    const ALTURA_PAGINA_MM = 210;
+    const PT_POR_PX = 0.75;
+    const ASCENT = 0.905;              // ascendente da Arial/Helvetica
+
+    recibos.forEach((recibo, idx) => {
+      const base = recibo.getBoundingClientRect();
+      const k = LARGURA_RECIBO_MM / recibo.offsetWidth;  // mm por px (sem escala)
+      const s = base.width / recibo.offsetWidth;         // escala atual da prévia
+      const X = x => ((x - base.left) / s) * k + idx * LARGURA_RECIBO_MM;
+      const Y = y => ((y - base.top) / s) * k;
+      const L = v => (v / s) * k;
+
+      // Logo
+      const img = recibo.querySelector('.logo img');
+      if(img){
+        const r = img.getBoundingClientRect();
+        pdf.addImage(img.src, 'PNG', X(r.left), Y(r.top), L(r.width), L(r.height));
+      }
+
+      // Linhas (bordas inferiores e superiores)
+      pdf.setDrawColor(34, 34, 34);
+      recibo.querySelectorAll('*').forEach(el => {
+        const cs = getComputedStyle(el);
+        const r = el.getBoundingClientRect();
+        if(!r.width) return;
+        const bb = parseFloat(cs.borderBottomWidth) || 0;
+        const bt = parseFloat(cs.borderTopWidth) || 0;
+        if(bb > 0 && cs.borderBottomStyle !== 'none'){
+          const y = Y(r.bottom) - (bb * k) / 2;
+          pdf.setLineWidth(bb * k);
+          pdf.line(X(r.left), y, X(r.right), y);
+        }
+        if(bt > 0 && cs.borderTopStyle !== 'none'){
+          const y = Y(r.top) + (bt * k) / 2;
+          pdf.setLineWidth(bt * k);
+          pdf.line(X(r.left), y, X(r.right), y);
+        }
+      });
+
+      // Textos
+      const walker = document.createTreeWalker(recibo, NodeFilter.SHOW_TEXT);
+      while(walker.nextNode()){
+        const node = walker.currentNode;
+        const m = node.nodeValue.match(/\S[\s\S]*\S|\S/);
+        if(!m) continue;
+        const el = node.parentElement;
+        const cs = getComputedStyle(el);
+        if(cs.color === 'rgba(0, 0, 0, 0)' || cs.color === 'transparent') continue;
+
+        const range = document.createRange();
+        range.setStart(node, m.index);
+        range.setEnd(node, m.index + m[0].length);
+        const r = range.getBoundingClientRect();
+        if(!r.width) continue;
+
+        const fontPx = parseFloat(cs.fontSize);
+        const negrito = parseInt(cs.fontWeight, 10) >= 600;
+        pdf.setFont('helvetica', negrito ? 'bold' : 'normal');
+        pdf.setFontSize(fontPx * PT_POR_PX);
+        pdf.setTextColor(17, 17, 17);
+        pdf.text(m[0].replace(/\s+/g, ' '), X(r.left), Y(r.top) + ASCENT * fontPx * k, { baseline: 'alphabetic' });
+      }
+
+      // Tracejado entre as duas vias
+      if(recibos.length > 1 && idx === 0){
+        pdf.setDrawColor(148, 163, 184);
+        pdf.setLineWidth(0.26);
+        pdf.setLineDashPattern([0.8, 0.8], 0);
+        pdf.line(LARGURA_RECIBO_MM - 0.13, 0, LARGURA_RECIBO_MM - 0.13, ALTURA_PAGINA_MM);
+        pdf.setLineDashPattern([], 0);
+      }
     });
 
-    const pageWidth = pdf.internal.pageSize.getWidth();
-    const pageHeight = pdf.internal.pageSize.getHeight();
-    const image = canvas.toDataURL('image/png');
-    const imgWidth = pageWidth;
-    const imgHeight = (canvas.height * imgWidth) / canvas.width;
-
-    pdf.addImage(image, 'PNG', 0, 0, imgWidth, imgHeight);
     pdf.save(obterNomeArquivoPdf());
   } catch (erro) {
     console.error('Erro ao gerar PDF:', erro);
