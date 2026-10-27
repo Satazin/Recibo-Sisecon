@@ -493,7 +493,9 @@ function montarListaItens() {
   itens.forEach((nome, i) => {
     const row = document.createElement('div');
     row.className = 'linha-item';
-    const placeholder = itensComCompetenciaMonetaria.has(nome) ? '0,00' : 'mm/aa';
+    const placeholder = nome === 'Outras Despesas'
+      ? 'Descrição'
+      : (itensComCompetenciaMonetaria.has(nome) ? '0,00' : 'mm/aa');
     row.innerHTML = `
       <div class="rotulo">${nome}</div>
       <input type="text" id="comp-${i}" placeholder="${placeholder}">
@@ -505,6 +507,9 @@ function montarListaItens() {
   itens.forEach((nome, i) => {
     const compInput = document.getElementById(`comp-${i}`);
     compInput.addEventListener('input', function () {
+      if (nome === 'Outras Despesas') {
+        return; // Campo livre para informar a descrição da despesa.
+      }
       if (itensComCompetenciaMonetaria.has(nome)) {
         this.value = formatarMoeda(this.value);
         return;
