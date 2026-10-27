@@ -190,6 +190,9 @@
     align-items:end;
     margin-bottom:12px;
   }
+  .linha-item.outras-despesas{
+    grid-template-columns: minmax(120px, 1fr) minmax(150px, 1.35fr) 104px;
+  }
   .linha-item .rotulo{
     font-size:12.8px;
     padding-bottom:10px;
@@ -679,7 +682,7 @@ const itensComCompetenciaMonetaria = new Set([
 const listaItensEl = document.getElementById('lista-itens');
 itens.forEach((nome, i) => {
   const row = document.createElement('div');
-  row.className = 'linha-item';
+  row.className = nome === 'Outras Despesas' ? 'linha-item outras-despesas' : 'linha-item';
   const placeholder = nome === 'Outras Despesas' ? 'Descrição' : (itensComCompetenciaMonetaria.has(nome) ? '0,00' : 'mm/aa');
   row.innerHTML = `
     <div class="rotulo">${nome}</div>
